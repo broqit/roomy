@@ -104,22 +104,57 @@ enum CategoryRules {
         case hidden
         case viewOnly(String)
         case trashCache(URL, note: String)
+        case cleanup(brew: URL, cache: URL?)
     }
 
-    static func homebrewPlan(cache: URL?, prefix: URL?, home: URL, ownerUID: uid_t?, currentUID: uid_t, cacheIsDirectory: Bool) -> HomebrewPlan {
-        guard let cache, cacheIsDirectory else { return .hidden }
+    /// `brew cleanup` with no extra flags. Anything else, including prune or uninstall, is rejected.
+    static func isExactBrewCleanup(executable: URL, arguments: [String]) -> Bool {
+        executable.lastPathComponent == "brew" && arguments == ["cleanup"]
+    }
+
+    /// The invoked file must be exactly `<prefix>/bin/brew` for a real directory the user owns.
+    /// The resolved target has to stay inside `/opt/homebrew` or `/usr/local`.
+    static func brewLivesInOwnedPrefix(_ executable: URL, uid: uid_t) -> Bool {
+        guard uid != 0 else { return false }
+        let invoked = executable.standardizedFileURL
+        for raw in ["/opt/homebrew", "/usr/local"] {
+            let prefix = URL(fileURLWithPath: raw, isDirectory: true).standardizedFileURL
+            var info = stat()
+            guard lstat(prefix.path, &info) == 0 else { continue }
+            guard (info.st_mode & S_IFMT) == S_IFDIR, info.st_uid == uid else { continue }
+            let resolvedPrefix = prefix.resolvingSymlinksInPath().standardizedFileURL
+            guard resolvedPrefix.path == prefix.path else { continue }
+            guard invoked.path == prefix.appendingPathComponent("bin/brew").standardizedFileURL.path else { continue }
+            let resolvedExec = executable.resolvingSymlinksInPath().standardizedFileURL
+            guard resolvedExec.path == prefix.path || resolvedExec.path.hasPrefix(prefix.path + "/") else { continue }
+            return true
+        }
+        return false
+    }
+
+    static func homebrewPlan(cache: URL?, prefix: URL?, home: URL, ownerUID: uid_t?, currentUID: uid_t, cacheIsDirectory: Bool, brew: URL? = nil) -> HomebrewPlan {
         let guarder = PathGuard(home: home)
-        guard case let .allowed(resolved) = guarder.vetDirectory(cache) else {
-            return .viewOnly(L10n.t("homebrew.outside"))
+        let allowedCache: URL?
+        if let cache, cacheIsDirectory {
+            guard case let .allowed(resolved) = guarder.vetDirectory(cache) else {
+                return .viewOnly(L10n.t("homebrew.outside"))
+            }
+            guard let ownerUID, ownerUID == currentUID else {
+                return .viewOnly(L10n.t("homebrew.owner"))
+            }
+            allowedCache = resolved
+        } else {
+            allowedCache = nil
         }
-        guard let ownerUID, ownerUID == currentUID else {
-            return .viewOnly(L10n.t("homebrew.owner"))
+        if let brew, isExactBrewCleanup(executable: brew, arguments: ["cleanup"]), brewLivesInOwnedPrefix(brew, uid: currentUID) {
+            return .cleanup(brew: brew, cache: allowedCache)
         }
+        guard let allowedCache else { return .hidden }
         let prefixIsPersonal = prefix.map { guarder.isInsideHome($0) } ?? false
         let note = prefixIsPersonal
             ? L10n.t("homebrew.personal")
             : L10n.t("homebrew.shared")
-        return .trashCache(resolved, note: note)
+        return .trashCache(allowedCache, note: note)
     }
 
     /// Relative paths under ~/Library/Caches that are not already claimed by a dedicated category.

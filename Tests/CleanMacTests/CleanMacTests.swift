@@ -240,6 +240,10 @@ final class PolicyTests: XCTestCase {
             return XCTFail("expected trash of the user cache, got \(plan)")
         }
         XCTAssertTrue(note.contains("brew cleanup"))
+        XCTAssertFalse(CategoryRules.isExactBrewCleanup(executable: URL(fileURLWithPath: "/opt/homebrew/bin/brew"), arguments: ["cleanup", "--prune=all"]))
+        XCTAssertFalse(CategoryRules.isExactBrewCleanup(executable: URL(fileURLWithPath: "/tmp/brew"), arguments: ["uninstall"]))
+        XCTAssertTrue(CategoryRules.isExactBrewCleanup(executable: URL(fileURLWithPath: "/opt/homebrew/bin/brew"), arguments: ["cleanup"]))
+        XCTAssertFalse(CategoryRules.brewLivesInOwnedPrefix(URL(fileURLWithPath: "/tmp/brew"), uid: getuid()))
         try? FileManager.default.removeItem(at: root)
     }
 

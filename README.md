@@ -8,6 +8,12 @@ The panel opens from the menu-bar icon or from the notch. The language follows t
 
 Author: Roman Borkunov.
 
+## Download
+
+[Roomy 1.0 for Apple silicon](https://github.com/broqit/roomy/releases/download/v1.0/Roomy-1.0.dmg), macOS 14 or later. Open the disk image and drag Roomy to Applications.
+
+The signature is local, with no Apple certificate. The first time you open the app, macOS may ask you to confirm it from the file’s context menu.
+
 ## Build
 
 Requires macOS 14 or later and the Swift toolchain that ships with Xcode. The build script produces an Apple silicon app.
@@ -45,7 +51,7 @@ Cleaning does not start without `--yes`. If the owning app is still running, the
 
 A category appears only when it actually exists on this Mac.
 
-- Tool caches: pnpm, npm, Yarn, Bun, node-gyp, pip, CocoaPods, Xcode DerivedData, and the personal Homebrew cache in `~/Library/Caches/Homebrew`.
+- Tool caches: pnpm, npm, Yarn, Bun, node-gyp, pip, CocoaPods, Xcode DerivedData, and Homebrew. When you own the prefix (`/opt/homebrew` or `/usr/local`), Roomy runs `brew cleanup` and leaves the current formula versions installed.
 - Docker build cache: `docker builder prune -f` only.
 - Caches for Cursor, Claude, Codex and ChatGPT, Viber, Telegram, Chrome, Safari, Arc, Firefox, JetBrains, and Android Studio.
 - Other folders in `~/Library/Caches` when the folder can be tied to an installed app.
@@ -59,7 +65,7 @@ pnpm, npm, Yarn, pip, and the Docker build cache are cleaned with their own offi
 - Chat history and sessions: Cursor (`state.vscdb`, History, agent-cli), Claude (`~/.claude/projects`, `history.jsonl`), Codex sessions, and local ChatGPT conversations.
 - Telegram and Viber account data, including `ViberPC`. Browser profiles, bookmarks, and passwords.
 - Docker images, volumes, containers, and the OrbStack disk image.
-- Shared Homebrew outside the personal cache. That row stays view-only. `brew cleanup` is left for you to run; Roomy does not run it.
+- A Homebrew prefix owned by someone else. Roomy then only moves `~/Library/Caches/Homebrew` to the Trash and does not run `brew cleanup`.
 - The Trash. Finder empties it.
 - Unrecognized folders in `~/Library/Caches`.
 - Projects, SDKs, and IDE settings.

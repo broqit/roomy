@@ -174,11 +174,15 @@ enum CacheCleaner {
 
     private static func runCommand(executable: URL, arguments: [String], scope: URL, home: URL) async -> String? {
         let guarder = PathGuard(home: home)
-        guard case .allowed = guarder.vetDirectory(scope) else { return CleanError.unsafePath.message }
-        for argument in arguments where argument.hasPrefix("/") {
-            let url = URL(fileURLWithPath: argument, isDirectory: true)
-            if guarder.isInsideHome(url) { continue }
-            return CleanError.unsafePath.message
+        if CategoryRules.isExactBrewCleanup(executable: executable, arguments: arguments) {
+            guard CategoryRules.brewLivesInOwnedPrefix(executable, uid: getuid()) else { return CleanError.unsafePath.message }
+        } else {
+            guard case .allowed = guarder.vetDirectory(scope) else { return CleanError.unsafePath.message }
+            for argument in arguments where argument.hasPrefix("/") {
+                let url = URL(fileURLWithPath: argument, isDirectory: true)
+                if guarder.isInsideHome(url) { continue }
+                return CleanError.unsafePath.message
+            }
         }
         guard FileManager.default.isExecutableFile(atPath: executable.path) else {
             return CleanError.toolFailed(tool: executable.lastPathComponent).message

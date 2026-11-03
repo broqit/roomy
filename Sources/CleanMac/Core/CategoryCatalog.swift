@@ -188,21 +188,38 @@ enum CategoryCatalog {
     private static func homebrewCategory(home: URL, uid: uid_t) -> CacheCategory? {
         let cache = home.appendingPathComponent("Library/Caches/Homebrew", isDirectory: true)
         let prefix = ["/opt/homebrew", "/usr/local"].map { URL(fileURLWithPath: $0, isDirectory: true) }.first(where: isDirectory)
+        let brew = prefix.flatMap { candidate -> URL? in
+            let url = candidate.appendingPathComponent("bin/brew")
+            return CategoryRules.brewLivesInOwnedPrefix(url, uid: uid) ? url : nil
+        }
         let owner = isDirectory(cache) ? PathGuard(home: home).ownerUID(cache) : nil
-        switch CategoryRules.homebrewPlan(cache: isDirectory(cache) ? cache : nil, prefix: prefix, home: home, ownerUID: owner, currentUID: uid, cacheIsDirectory: isDirectory(cache)) {
+        switch CategoryRules.homebrewPlan(cache: isDirectory(cache) ? cache : nil, prefix: prefix, home: home, ownerUID: owner, currentUID: uid, cacheIsDirectory: isDirectory(cache), brew: brew) {
         case .hidden:
             return nil
         case let .viewOnly(reason):
             return CacheCategory(
                 id: "homebrew", name: "Homebrew cache", symbol: "mug", roots: isDirectory(cache) ? [cache] : [],
-                method: .revealOnly, note: reason, consequences: "Спільний Homebrew не змінюється.",
+                method: .revealOnly, note: reason, consequences: reason,
                 includeInRecommendations: false, toolProblem: reason
             )
         case let .trashCache(resolved, note):
             return CacheCategory(
                 id: "homebrew", name: "Homebrew cache", symbol: "mug", roots: [resolved],
                 method: .trashContents, note: note,
-                consequences: "Завантаження формул повторяться. Старі версії у Cellar ця дія не чіпає.",
+                consequences: L10n.t("homebrew.trash.why"),
+                includeInRecommendations: true
+            )
+        case let .cleanup(brew, cache):
+            return CacheCategory(
+                id: "homebrew", name: "Homebrew cache", symbol: "mug", roots: cache.map { [$0] } ?? [],
+                method: .command(
+                    executable: brew,
+                    arguments: ["cleanup"],
+                    display: "brew cleanup",
+                    scope: home
+                ),
+                note: L10n.t("homebrew.cleanup"),
+                consequences: L10n.t("homebrew.cleanup.why"),
                 includeInRecommendations: true
             )
         }
