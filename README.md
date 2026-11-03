@@ -4,6 +4,8 @@ A macOS menu-bar app that shows how much space caches take and removes only what
 
 The panel opens from the menu-bar icon or from the notch. The language follows the system: Ukrainian, English, Spanish, German, or Kazakh. You can override it.
 
+![Roomy panel](docs/roomy.jpg)
+
 Author: Roman Borkunov.
 
 ## Build
